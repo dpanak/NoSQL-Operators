@@ -2,3 +2,7 @@ target/
 .idea/
 enrich.log
 *.iml
+.project
+.settings
+.classpath
+*bin/

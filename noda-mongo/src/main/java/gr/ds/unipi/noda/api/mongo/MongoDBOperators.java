@@ -13,6 +13,8 @@ import gr.ds.unipi.noda.api.core.operators.joinOperators.JoinOperator;
 import gr.ds.unipi.noda.api.core.operators.sortOperators.SortOperator;
 import gr.ds.unipi.noda.api.core.nosqldb.NoSQLExpression;
 import gr.ds.unipi.noda.api.mongo.filterOperators.geoperators.geographicalOperators.MongoDBGeographicalOperatorFactory;
+import gr.ds.unipi.noda.api.mongo.joinOperators.OperatorStrategy;
+
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
@@ -20,6 +22,7 @@ import org.bson.BsonDocument;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import scala.collection.JavaConversions;
+import scala.collection.JavaConverters;
 
 import java.util.*;
 
@@ -29,6 +32,9 @@ final class MongoDBOperators extends NoSqlDbOperators {
     private final List<Bson> stagesList;
     private final String database;
     private final String uriSparkSession;
+    private NoSqlDbOperators otherNoSqlOperator;
+	private boolean needJoin;
+	private JoinOperator jo;
 
     private MongoDBOperators(NoSqlDbConnector connector, String s, SparkSession sparkSession) {
         super(connector, s, sparkSession);
@@ -38,12 +44,15 @@ final class MongoDBOperators extends NoSqlDbOperators {
         uriSparkSession = mongoDBConnector.getMongoURIForSparkSession();
     }
 
-    private MongoDBOperators(MongoDBOperators mongoDBOperators, List<Bson> stagesList){
-        super(mongoDBOperators.getNoSqlDbConnector(), mongoDBOperators.getDataCollection(), mongoDBOperators.getSparkSession());
-        this.stagesList = stagesList;
-        this.database = mongoDBOperators.getDatabase();
-        this.uriSparkSession = mongoDBOperators.getUriSparkSession();
-    }
+    private MongoDBOperators (MongoDBOperators mongoDBOperators, List<Bson> stagesList, NoSqlDbOperators noSqlDbOperators, JoinOperator jo, boolean needJoin) {
+		super(mongoDBOperators.getNoSqlDbConnector(), mongoDBOperators.getDataCollection(), mongoDBOperators.getSparkSession());
+		this.stagesList = stagesList;
+		this.database = mongoDBOperators.getDatabase();
+		this.uriSparkSession = mongoDBOperators.getUriSparkSession();
+		this.otherNoSqlOperator = noSqlDbOperators;
+		this.jo = jo;
+		this.needJoin = needJoin;
+	}
 
     private String getDatabase(){
         return database;
@@ -88,7 +97,7 @@ final class MongoDBOperators extends NoSqlDbOperators {
                 sl.add(Document.parse(" { $match: " + fops.getOperatorExpression() + " } "));
             }
         }
-        return new MongoDBOperators(this, sl);
+        return new MongoDBOperators(this, sl, this.otherNoSqlOperator, this.jo, this.needJoin);
     }
 
     @Override
@@ -126,14 +135,14 @@ final class MongoDBOperators extends NoSqlDbOperators {
 
         sl.add(Document.parse(sb.toString()));
 
-        return new MongoDBOperators(this, sl);
+        return new MongoDBOperators(this, sl, this.otherNoSqlOperator, this.jo, this.needJoin);
     }
 
     @Override
     public NoSqlDbOperators limit(int limit) {
         List<Bson> sl =new ArrayList<>(stagesList);
         sl.add(Document.parse("{ $limit: " + limit + " }"));
-        return new MongoDBOperators(this, sl);
+        return new MongoDBOperators(this, sl, this.otherNoSqlOperator, this.jo, this.needJoin);
     }
 
     @Override
@@ -212,7 +221,7 @@ final class MongoDBOperators extends NoSqlDbOperators {
 
         sl.add(Document.parse(sb.toString()));
 
-        return new MongoDBOperators(this, sl);
+        return new MongoDBOperators(this, sl, this.otherNoSqlOperator, this.jo, this.needJoin);
     }
 
     @Override
@@ -256,7 +265,7 @@ final class MongoDBOperators extends NoSqlDbOperators {
             sl.add(Document.parse(sb.toString()));
         }
 
-        return new MongoDBOperators(this, sl);
+        return new MongoDBOperators(this, sl, this.otherNoSqlOperator, this.jo, this.needJoin);
     }
 
     @Override
@@ -297,27 +306,41 @@ final class MongoDBOperators extends NoSqlDbOperators {
         sb.append(" } }");
 
         sl.add(Document.parse(sb.toString()));
-        return new MongoDBOperators(this, sl);
+        return new MongoDBOperators(this, sl, this.otherNoSqlOperator, this.jo, this.needJoin);
 
     }
 
     @Override
-    public Dataset<Row> toDataframe() {
-        Map<String, String> readOverrides = new HashMap<>();
-        //readOverrides.put("spark.mongodb.input.uri", uriSparkSession);
-        //readOverrides.put("spark.mongodb.input.database", getDatabase());
-        //System.out.println(uriSparkSession);
-        //readOverrides.put("spark.mongodb.input.database", database);
-        //readOverrides.put("spark.mongodb.input.collection", getDataCollection());
-        ReadConfig readConfig = ReadConfig.create(getSparkSession()).withOptions(readOverrides).withPipeline(JavaConversions.asScalaBuffer(Collections.unmodifiableList(stagesList)).toSeq());
-        formExpressionOfNoSQL();
-        return MongoSpark.loadAndInferSchema(getSparkSession(), readConfig);
-    }
+	public Dataset<Row> toDataframe () {
+		Map<String, String> readOverrides = new HashMap<>();
+		readOverrides.put("spark.mongodb.input.uri", uriSparkSession);
+		readOverrides.put("spark.mongodb.input.database", getDatabase());
+		System.out.println(uriSparkSession);
+		readOverrides.put("spark.mongodb.input.database", database);
+		readOverrides.put("spark.mongodb.input.collection", getDataCollection());
+		ReadConfig readConfig = ReadConfig.create(getSparkSession()).withOptions(readOverrides).withPipeline(JavaConverters.asScalaIteratorConverter(stagesList.iterator()).asScala().toSeq());
+		formExpressionOfNoSQL();
+		Dataset<Row> result = MongoSpark.loadAndInferSchema(getSparkSession(), readConfig);
+		return needJoin ? join(result) : result;
+	}
 
-    @Override
-    public NoSqlDbOperators join(NoSqlDbOperators noSqlDbOperators, JoinOperator jo) {
-        return null;
-    }
+	/**
+	 * Joins the data to passed column with use of {@link #toDataframe()}.
+	 */
+	@Override
+	@SuppressWarnings ("rawtypes")
+	public NoSqlDbOperators join (NoSqlDbOperators noSqlDbOperators, JoinOperator jo) {
+		return new MongoDBOperators(this, this.stagesList, noSqlDbOperators, jo, true);
+	}
+
+	/**
+	 * Common logic for join a Dataset.
+	 * 
+	 * @return The joined Dataset or #toDataframe directly.
+	 */
+	private Dataset<Row> join (Dataset<Row> thizz) {
+		return OperatorStrategy.find(OperatorStrategy.class.cast(jo.getOperatorExpression())).makeJoin(thizz, otherNoSqlOperator.toDataframe(), jo, jo.getJoinCondition().name());
+	}
 
     @Override
     public NoSqlDbResults getResults() {

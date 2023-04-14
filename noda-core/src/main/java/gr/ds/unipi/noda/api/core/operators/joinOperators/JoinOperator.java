@@ -24,7 +24,7 @@ public abstract class JoinOperator<T> implements Operator<T> {
 
     public static BaseJoinOperatorFactory joinOperator;
 
-    protected JoinCondition getJoinCondition(){
+    public JoinCondition getJoinCondition(){
         return condition;
     }
 

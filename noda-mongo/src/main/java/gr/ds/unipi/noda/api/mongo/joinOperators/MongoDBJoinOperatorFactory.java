@@ -3,35 +3,37 @@ package gr.ds.unipi.noda.api.mongo.joinOperators;
 import gr.ds.unipi.noda.api.core.operators.joinOperators.BaseJoinOperatorFactory;
 import gr.ds.unipi.noda.api.core.operators.joinOperators.JoinOperator;
 
+/**
+ * Factory for join operators.
+ */
 public class MongoDBJoinOperatorFactory extends BaseJoinOperatorFactory {
+	@Override
+	public JoinOperator<OperatorStrategy> newOperatorGte (String columnA, String columnB) {
+		return new GreaterThanOrEqualsJoinOperator(columnA, columnB);
+	}
 
-    @Override
-    public JoinOperator newOperatorGte(String columnA, String columnB) {
-        return null;
-    }
+	@Override
+	public JoinOperator<OperatorStrategy> newOperatorGt (String columnA, String columnB) {
+		return new GreaterThanJoinOperator(columnA, columnB);
+	}
 
-    @Override
-    public JoinOperator newOperatorGt(String columnA, String columnB) {
-        return null;
-    }
+	@Override
+	public JoinOperator<OperatorStrategy> newOperatorLte (String columnA, String columnB) {
+		return new LowerThanOrEqualsJoinOperator(columnA, columnB);
+	}
 
-    @Override
-    public JoinOperator newOperatorLte(String columnA, String columnB) {
-        return null;
-    }
+	@Override
+	public JoinOperator<OperatorStrategy> newOperatorLt (String columnA, String columnB) {
+		return new LowerThanJoinOperator(columnA, columnB);
+	}
 
-    @Override
-    public JoinOperator newOperatorLt(String columnA, String columnB) {
-        return null;
-    }
+	@Override
+	public JoinOperator<OperatorStrategy> newOperatorEq (String columnA, String columnB) {
+		return new EqualJoinOperator(columnA, columnB);
+	}
 
-    @Override
-    public JoinOperator newOperatorEq(String columnA, String columnB) {
-        return null;
-    }
-
-    @Override
-    public JoinOperator newOperatorNe(String columnA, String columnB) {
-        return null;
-    }
+	@Override
+	public JoinOperator<OperatorStrategy> newOperatorNe (String columnA, String columnB) {
+		return new NotEqualJoinOperator(columnA, columnB);
+	}
 }
