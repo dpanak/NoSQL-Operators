@@ -7,6 +7,7 @@ import gr.ds.unipi.noda.api.core.operators.aggregateOperators.AggregateOperator;
 import gr.ds.unipi.noda.api.core.operators.filterOperators.FilterOperator;
 import gr.ds.unipi.noda.api.core.operators.joinOperators.JoinOperator;
 import gr.ds.unipi.noda.api.core.operators.sortOperators.SortOperator;
+import gr.ds.unipi.noda.api.hbase.joinOperators.OperatorStrategy;
 import gr.ds.unipi.noda.api.core.nosqldb.NoSQLExpression;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.CompareOperator;
@@ -36,7 +37,11 @@ final class HBaseOperators extends NoSqlDbOperators {
 
     private final Scan scan;
     private final FilterList filterList;
-    private final FilterList projectionFilterList;
+    private final FilterList projectionFilterList;    
+    private NoSqlDbOperators otherNoSqlOperator;
+	private boolean needJoin;
+	private JoinOperator jo;
+
 
     private HBaseOperators(NoSqlDbConnector connector, String s, SparkSession sparkSession) {
         super(connector, s, sparkSession);
@@ -45,12 +50,15 @@ final class HBaseOperators extends NoSqlDbOperators {
         projectionFilterList = new FilterList(FilterList.Operator.MUST_PASS_ONE);
     }
 
-    private HBaseOperators(HBaseOperators hbaseOperators, Scan scan, FilterList filterList, FilterList projectionFilterList) {
-        super(hbaseOperators.getNoSqlDbConnector(), hbaseOperators.getDataCollection(), hbaseOperators.getSparkSession());
-        this.scan = scan;
-        this.filterList = filterList;
-        this.projectionFilterList = projectionFilterList;
-    }
+    private HBaseOperators (HBaseOperators hbaseOperators, Scan scan, FilterList filterList, FilterList projectionFilterList, NoSqlDbOperators noSqlDbOperators, JoinOperator jo, boolean needJoin) {
+		super(hbaseOperators.getNoSqlDbConnector(), hbaseOperators.getDataCollection(), hbaseOperators.getSparkSession());
+		this.scan = scan;
+		this.filterList = filterList;
+		this.projectionFilterList = projectionFilterList;
+		this.otherNoSqlOperator = noSqlDbOperators;
+		this.jo = jo;
+		this.needJoin = needJoin;
+	}
 
     private FilterList getFilterListCopy() {
         FilterList fl = new FilterList(FilterList.Operator.MUST_PASS_ALL);
@@ -78,7 +86,7 @@ final class HBaseOperators extends NoSqlDbOperators {
             fl.addFilter((Filter) fop.getOperatorExpression());
         }
         try {
-            return new HBaseOperators(this, new Scan(scan), fl, getProjectionFilterListCopy());
+        	return new HBaseOperators(this, new Scan(scan), fl, getProjectionFilterListCopy(), null, null, false);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -158,7 +166,7 @@ final class HBaseOperators extends NoSqlDbOperators {
 
         fl.addFilter(new PageFilter(limit));
         try {
-            return new HBaseOperators(this, new Scan(scan), fl, getProjectionFilterListCopy());
+            return new HBaseOperators(this, new Scan(scan), fl, getProjectionFilterListCopy(), null, null, false);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -200,7 +208,7 @@ final class HBaseOperators extends NoSqlDbOperators {
         }
 
         try {
-            return new HBaseOperators(this, new Scan(scan), getFilterListCopy(), pl);
+        	return new HBaseOperators(this, new Scan(scan), getFilterListCopy(), pl, null, null, false);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -208,36 +216,37 @@ final class HBaseOperators extends NoSqlDbOperators {
     }
 
     @Override
-    public Dataset<Row> toDataframe() {
+	public Dataset<Row> toDataframe () {
+		filterList.addFilter(projectionFilterList);
+		scan.setFilter(filterList);
+		Configuration conf = hbaseConnectionManager.getConfiguration(getNoSqlDbConnector());
+		conf.set(TableInputFormat.INPUT_TABLE, getDataCollection());
+		try {
+			conf.set(TableInputFormat.SCAN, TableMapReduceUtil.convertScanToString(scan));
+		}
+		catch (IOException e) {
+			e.printStackTrace();
+		}
+		JavaPairRDD<ImmutableBytesWritable, Result> javaPairRDD = JavaSparkContext.fromSparkContext(getSparkSession().sparkContext()).newAPIHadoopRDD(conf, TableInputFormat.class, ImmutableBytesWritable.class, Result.class);
+		Dataset<Row> df = getSparkSession().sqlContext().createDataFrame(javaPairRDD.values(), Result.class);
+		df = df.select(new Column("row"), org.apache.spark.sql.functions.explode_outer(new Column("noVersionMap"))).select(new Column("row"), new Column("key").as("columnFamily"), org.apache.spark.sql.functions.explode_outer(new Column("value"))).select(new Column("row"), new Column("columnFamily"), new Column("key").as("columnQualifier"), new Column("value")).withColumn("column", org.apache.spark.sql.functions.concat(new Column("columnFamily"), org.apache.spark.sql.functions.lit(":"), new Column("columnQualifier"))).drop("columnFamily", "columnQualifier").groupBy("row").pivot("column").agg(org.apache.spark.sql.functions.first(new Column("value")));
+		NoSQLExpression.INSTANCE.setExpression(filterList.toString());
+		return needJoin ? join(df) : df;
+	}
 
-        filterList.addFilter(projectionFilterList);
-        scan.setFilter(filterList);
+	@Override
+	public NoSqlDbOperators join (NoSqlDbOperators noSqlDbOperators, JoinOperator jo) {
+		return new HBaseOperators(this, this.scan, getFilterListCopy(), getProjectionFilterListCopy(), noSqlDbOperators, jo, true);
+	}
 
-        Configuration conf = hbaseConnectionManager.getConfiguration(getNoSqlDbConnector());
-        conf.set(TableInputFormat.INPUT_TABLE, getDataCollection());
-        try {
-            conf.set(TableInputFormat.SCAN, TableMapReduceUtil.convertScanToString(scan));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        JavaPairRDD<ImmutableBytesWritable, Result> javaPairRDD = JavaSparkContext.fromSparkContext(getSparkSession().sparkContext()).newAPIHadoopRDD(conf, TableInputFormat.class, ImmutableBytesWritable.class, Result.class);
-
-        Dataset<Row> df = getSparkSession().sqlContext().createDataFrame(javaPairRDD.values(), Result.class);
-
-        df = df.select(new Column("row"), org.apache.spark.sql.functions.explode_outer(new Column("noVersionMap"))).select(new Column("row"), new Column("key").as("columnFamily"), org.apache.spark.sql.functions.explode_outer(new Column("value"))).select(new Column("row"), new Column("columnFamily")
-                , new Column("key").as("columnQualifier"), new Column("value"))
-                .withColumn("column", org.apache.spark.sql.functions.concat(new Column("columnFamily"), org.apache.spark.sql.functions.lit(":"), new Column("columnQualifier"))).drop("columnFamily", "columnQualifier").groupBy("row").pivot("column").agg(org.apache.spark.sql.functions.first(new Column("value")));
-
-        NoSQLExpression.INSTANCE.setExpression(filterList.toString());
-
-        return df;
-    }
-
-    @Override
-    public NoSqlDbOperators join(NoSqlDbOperators noSqlDbOperators, JoinOperator jo) {
-        return null;
-    }
+	/**
+	 * Common logic for join a Dataset.
+	 * 
+	 * @return The joined Dataset or #toDataframe directly.
+	 */
+	private Dataset<Row> join (Dataset<Row> thizz) {
+		return OperatorStrategy.find(OperatorStrategy.class.cast(jo.getOperatorExpression())).makeJoin(thizz, otherNoSqlOperator.toDataframe(), jo, jo.getJoinCondition().name());
+	}
 
     @Override
     public NoSqlDbResults getResults() {
