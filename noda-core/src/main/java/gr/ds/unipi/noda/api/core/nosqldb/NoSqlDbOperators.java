@@ -69,4 +69,14 @@ public abstract class NoSqlDbOperators {
 
     abstract public NoSqlDbResults getResults();
 
+
+	/**
+	 * Joins NoSqlDbOperators on a common field and returns json as string.
+	 * 
+	 * @param noSqlDbOperators
+	 * @param jo
+	 * @return JSON as String.
+	 */
+    abstract public String joinToJSON (NoSqlDbOperators noSqlDbOperators, JoinOperator jo);
+
 }
