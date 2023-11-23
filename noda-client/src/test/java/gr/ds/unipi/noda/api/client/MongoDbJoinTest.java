@@ -6,8 +6,8 @@ import org.apache.spark.sql.SparkSession;
 import org.junit.Test;
 
 import gr.ds.unipi.noda.api.core.nosqldb.NoSqlDbOperators;
+import gr.ds.unipi.noda.api.core.operators.joinOperators.MongoDBJoinOperatorFactory;
 import gr.ds.unipi.noda.api.mongo.filterOperators.comparisonOperators.MongoDBComparisonOperatorFactory;
-import gr.ds.unipi.noda.api.mongo.joinOperators.MongoDBJoinOperatorFactory;
 
 /**
  * Join test for mongo db.

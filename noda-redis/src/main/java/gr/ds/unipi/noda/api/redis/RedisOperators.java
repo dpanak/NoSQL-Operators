@@ -333,4 +333,13 @@ final class RedisOperators extends NoSqlDbOperators {
         return null;
     }
 
+	/**
+	 * @see gr.ds.unipi.noda.api.core.nosqldb.NoSqlDbOperators#joinToJSON(gr.ds.unipi.noda.api.core.nosqldb.NoSqlDbOperators, gr.ds.unipi.noda.api.core.operators.joinOperators.JoinOperator)
+	 */
+	@Override
+	public String joinToJSON (NoSqlDbOperators noSqlDbOperators, JoinOperator jo) {
+		// TODO Implement this method.
+		return null;
+	}
+
 }

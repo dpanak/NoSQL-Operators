@@ -10,10 +10,10 @@ import gr.ds.unipi.noda.api.core.nosqldb.NoSqlDbResults;
 import gr.ds.unipi.noda.api.core.operators.aggregateOperators.AggregateOperator;
 import gr.ds.unipi.noda.api.core.operators.filterOperators.FilterOperator;
 import gr.ds.unipi.noda.api.core.operators.joinOperators.JoinOperator;
+import gr.ds.unipi.noda.api.core.operators.joinOperators.OperatorStrategy;
 import gr.ds.unipi.noda.api.core.operators.sortOperators.SortOperator;
 import gr.ds.unipi.noda.api.core.nosqldb.NoSQLExpression;
 import gr.ds.unipi.noda.api.mongo.filterOperators.geoperators.geographicalOperators.MongoDBGeographicalOperatorFactory;
-import gr.ds.unipi.noda.api.mongo.joinOperators.OperatorStrategy;
 
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;

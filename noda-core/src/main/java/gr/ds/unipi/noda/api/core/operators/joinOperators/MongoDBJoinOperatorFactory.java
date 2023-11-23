@@ -1,12 +1,9 @@
-package gr.ds.unipi.noda.api.hbase.joinOperators;
-
-import gr.ds.unipi.noda.api.core.operators.joinOperators.BaseJoinOperatorFactory;
-import gr.ds.unipi.noda.api.core.operators.joinOperators.JoinOperator;
+package gr.ds.unipi.noda.api.core.operators.joinOperators;
 
 /**
  * Factory for join operators.
  */
-public class HbaseDBJoinOperatorFactory extends BaseJoinOperatorFactory {
+public class MongoDBJoinOperatorFactory extends BaseJoinOperatorFactory {
 	@Override
 	public JoinOperator<OperatorStrategy> newOperatorGte (String columnA, String columnB) {
 		return new GreaterThanOrEqualsJoinOperator(columnA, columnB);

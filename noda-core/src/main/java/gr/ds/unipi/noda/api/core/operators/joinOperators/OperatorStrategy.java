@@ -1,4 +1,4 @@
-package gr.ds.unipi.noda.api.mongo.joinOperators;
+package gr.ds.unipi.noda.api.core.operators.joinOperators;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -13,7 +13,6 @@ import com.google.gson.Gson;
 
 import gr.ds.unipi.noda.api.core.nosqldb.NoSqlDbOperators;
 import gr.ds.unipi.noda.api.core.nosqldb.NoSqlDbRecord;
-import gr.ds.unipi.noda.api.core.operators.joinOperators.JoinOperator;
 
 import scala.collection.JavaConverters;
 

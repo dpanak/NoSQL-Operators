@@ -1,14 +1,8 @@
 package gr.ds.unipi.noda.api.hbase;
 
-import gr.ds.unipi.noda.api.core.nosqldb.NoSqlDbConnector;
-import gr.ds.unipi.noda.api.core.nosqldb.NoSqlDbOperators;
-import gr.ds.unipi.noda.api.core.nosqldb.NoSqlDbResults;
-import gr.ds.unipi.noda.api.core.operators.aggregateOperators.AggregateOperator;
-import gr.ds.unipi.noda.api.core.operators.filterOperators.FilterOperator;
-import gr.ds.unipi.noda.api.core.operators.joinOperators.JoinOperator;
-import gr.ds.unipi.noda.api.core.operators.sortOperators.SortOperator;
-import gr.ds.unipi.noda.api.hbase.joinOperators.OperatorStrategy;
-import gr.ds.unipi.noda.api.core.nosqldb.NoSQLExpression;
+import java.io.IOException;
+import java.util.Optional;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.CompareOperator;
 import org.apache.hadoop.hbase.TableName;
@@ -16,7 +10,12 @@ import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.client.Table;
-import org.apache.hadoop.hbase.filter.*;
+import org.apache.hadoop.hbase.filter.BinaryComparator;
+import org.apache.hadoop.hbase.filter.FamilyFilter;
+import org.apache.hadoop.hbase.filter.Filter;
+import org.apache.hadoop.hbase.filter.FilterList;
+import org.apache.hadoop.hbase.filter.PageFilter;
+import org.apache.hadoop.hbase.filter.QualifierFilter;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.mapreduce.TableInputFormat;
 import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
@@ -28,8 +27,15 @@ import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 
-import java.io.IOException;
-import java.util.Optional;
+import gr.ds.unipi.noda.api.core.nosqldb.NoSQLExpression;
+import gr.ds.unipi.noda.api.core.nosqldb.NoSqlDbConnector;
+import gr.ds.unipi.noda.api.core.nosqldb.NoSqlDbOperators;
+import gr.ds.unipi.noda.api.core.nosqldb.NoSqlDbResults;
+import gr.ds.unipi.noda.api.core.operators.aggregateOperators.AggregateOperator;
+import gr.ds.unipi.noda.api.core.operators.filterOperators.FilterOperator;
+import gr.ds.unipi.noda.api.core.operators.joinOperators.JoinOperator;
+import gr.ds.unipi.noda.api.core.operators.joinOperators.OperatorStrategy;
+import gr.ds.unipi.noda.api.core.operators.sortOperators.SortOperator;
 
 final class HBaseOperators extends NoSqlDbOperators {
 
@@ -252,4 +258,13 @@ final class HBaseOperators extends NoSqlDbOperators {
     public NoSqlDbResults getResults() {
         return null;
     }
+
+	/**
+	 * @see gr.ds.unipi.noda.api.core.nosqldb.NoSqlDbOperators#joinToJSON(gr.ds.unipi.noda.api.core.nosqldb.NoSqlDbOperators, gr.ds.unipi.noda.api.core.operators.joinOperators.JoinOperator)
+	 */
+	@Override
+	public String joinToJSON (NoSqlDbOperators noSqlDbOperators, JoinOperator jo) {
+		// TODO Implement this method.
+		return null;
+	}
 }

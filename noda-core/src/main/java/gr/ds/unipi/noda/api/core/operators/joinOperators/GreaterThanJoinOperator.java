@@ -1,6 +1,4 @@
-package gr.ds.unipi.noda.api.hbase.joinOperators;
-
-import gr.ds.unipi.noda.api.core.operators.joinOperators.JoinOperator;
+package gr.ds.unipi.noda.api.core.operators.joinOperators;
 
 /**
  * Greater Than Join Expression.

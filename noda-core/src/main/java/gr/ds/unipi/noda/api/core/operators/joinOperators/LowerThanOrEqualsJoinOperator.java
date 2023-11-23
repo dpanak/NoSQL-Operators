@@ -1,20 +1,18 @@
-package gr.ds.unipi.noda.api.mongo.joinOperators;
-
-import gr.ds.unipi.noda.api.core.operators.joinOperators.JoinOperator;
+package gr.ds.unipi.noda.api.core.operators.joinOperators;
 
 /**
  * Lower than operator expression.
  * 
  * @author panakos dimitrios
  */
-public class LowerThanJoinOperator extends JoinOperator<OperatorStrategy> {
+public class LowerThanOrEqualsJoinOperator extends JoinOperator<OperatorStrategy> {
 	/**
 	 * Constructor.
 	 * 
 	 * @param columnA
 	 * @param columnB
 	 */
-	public LowerThanJoinOperator (String columnA, String columnB) {
+	public LowerThanOrEqualsJoinOperator (String columnA, String columnB) {
 		super(columnA, columnB);
 	}
 
@@ -23,6 +21,6 @@ public class LowerThanJoinOperator extends JoinOperator<OperatorStrategy> {
 	 */
 	@Override
 	public OperatorStrategy getOperatorExpression () {
-		return OperatorStrategy.LESS_THAN;
+		return OperatorStrategy.LESS_THAN_OR_EQUAL;
 	}
 }

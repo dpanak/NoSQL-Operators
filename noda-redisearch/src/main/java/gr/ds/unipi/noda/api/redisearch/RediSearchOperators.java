@@ -172,4 +172,13 @@ public final class RediSearchOperators extends NoSqlDbOperators {
     }
 
     private final BiFunction<FilterOperator, FilterOperator[], Stream<FilterOperator>> func = (filterOperator, filterOperators) -> Stream.concat(Stream.of(filterOperator), Arrays.stream(filterOperators));
+
+	/**
+	 * @see gr.ds.unipi.noda.api.core.nosqldb.NoSqlDbOperators#joinToJSON(gr.ds.unipi.noda.api.core.nosqldb.NoSqlDbOperators, gr.ds.unipi.noda.api.core.operators.joinOperators.JoinOperator)
+	 */
+	@Override
+	public String joinToJSON (NoSqlDbOperators noSqlDbOperators, JoinOperator jo) {
+		// TODO Implement this method.
+		return null;
+	}
 }
