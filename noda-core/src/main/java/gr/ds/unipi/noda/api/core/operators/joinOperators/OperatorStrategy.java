@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
@@ -13,6 +14,7 @@ import com.google.gson.Gson;
 
 import gr.ds.unipi.noda.api.core.nosqldb.NoSqlDbOperators;
 import gr.ds.unipi.noda.api.core.nosqldb.NoSqlDbRecord;
+import gr.ds.unipi.noda.api.core.nosqldb.NoSqlDbResults;
 
 import scala.collection.JavaConverters;
 
@@ -109,43 +111,42 @@ public enum OperatorStrategy {
 	public abstract Dataset<Row> makeJoin (Dataset<Row> leftDf, Dataset<Row> rightDf, JoinOperator jo, String condition);
 
 	/**
+	 * Joins the two results data with hash join algorithm.
+	 * 
 	 * @param left
 	 * @param right
 	 * @param jo
-	 * @return
+	 * @return The String JSON of the results.
 	 */
 	@SuppressWarnings ("rawtypes")
 	public String makeJoin (NoSqlDbOperators left, NoSqlDbOperators right, JoinOperator jo) {
-		String colA = jo.getColumnAName();
-		List<NoSqlDbRecord> first = getResultsWithColumn(left, colA);
-		Map<String, NoSqlDbRecord> hashTableA = createHashMap(first, colA);
-		String colB = jo.getColumnBName();
-		List<NoSqlDbRecord> second = getResultsWithColumn(right, colB);
-		Map<String, NoSqlDbRecord> hashTableB = createHashMap(second, colB);
+		// Fetch records containing the necessary columns
+		List<NoSqlDbRecord> firstRecords = getResultsWithColumn(left, jo.getColumnAName());
+		List<NoSqlDbRecord> secondRecords = getResultsWithColumn(right, jo.getColumnBName());
+		Map<String, List<NoSqlDbRecord>> hashTable = new HashMap<>();
+		for (NoSqlDbRecord record : firstRecords) {
+			String key = record.getString(jo.getColumnAName());
+			hashTable.computeIfAbsent(key, k -> new ArrayList<>()).add(record);
+		}
 		List<NoSqlDbRecord> results = new ArrayList<>();
-		for (String key : hashTableA.keySet()) {
-			if (hashTableB.containsKey(key)) {
-				results.add(hashTableA.get(key));
-				results.add(hashTableB.get(key));
+		for (NoSqlDbRecord record : secondRecords) {
+			String key = record.getString(jo.getColumnBName());
+			if (hashTable.containsKey(key)) {
+				for (NoSqlDbRecord matchingRecord : hashTable.get(key)) {
+					results.add(matchingRecord);
+					results.add(record);
+				}
 			}
 		}
-		return new Gson().toJson(results).toString();
-	}
-
-	@SuppressWarnings ("rawtypes")
-	private Map<String, NoSqlDbRecord> createHashMap (List<NoSqlDbRecord> records, String colName) {
-		Map<String, NoSqlDbRecord> hashTable = new HashMap<>();
-		for (NoSqlDbRecord record : records) {
-			hashTable.put(record.getString(colName), record);
-		}
-		return hashTable;
+		return new Gson().toJson(results);
 	}
 
 	@SuppressWarnings ("rawtypes")
 	private List<NoSqlDbRecord> getResultsWithColumn (NoSqlDbOperators noSqlDbOperators, String colName) {
 		List<NoSqlDbRecord> list = new ArrayList<>();
-		while (noSqlDbOperators.getResults().hasNextRecord()) {
-			NoSqlDbRecord record = noSqlDbOperators.getResults().getRecord();
+		NoSqlDbResults results = noSqlDbOperators.getResults();
+		while (results.hasNextRecord()) {
+			NoSqlDbRecord record = results.getRecord();
 			if (record.containsField(colName)) {
 				list.add(record);
 			}

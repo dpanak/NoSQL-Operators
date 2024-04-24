@@ -27,11 +27,12 @@ public class MongoDbJoinTest {
 		//@format:off
 		Dataset<Row> dataset1 = noSqlDbOperators.project("countryName", "sourcemmsi", "shipLength").join(noSqlDbOperators1.project("countryName", "shiptype"), new MongoDBJoinOperatorFactory().newOperatorEq("countryName", "countryName")).toDataframe();
 		long docs = dataset1.count();
+		System.out.println(String.format("Records retrieved size from dataset one is : %s.", docs));
 		Dataset<Row> dataset2 =noSqlDbOperators1.join(noSqlDbOperators.project("countryName", "sourcemmsi", "shipLength"), new MongoDBJoinOperatorFactory().newOperatorEq("countryName", "countryName")).project("countryName", "shiptype").toDataframe();
 		long docsReversedJoin = dataset2.count();
-		System.out.println(docs == docsReversedJoin ? "Test PASSED." : "Test FAILED");
 		dataset1.show();
 		dataset2.show();
+		System.out.println(docs == docsReversedJoin ? String.format("Test PASSED with records retrieved size: %s.", docsReversedJoin) : "Test FAILED");
 		//@format:on
 		noSqlDbSystem.closeConnection();
 		noSqlDbSystem1.closeConnection();
