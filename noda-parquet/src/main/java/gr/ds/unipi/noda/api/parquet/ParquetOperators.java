@@ -8,11 +8,10 @@ import gr.ds.unipi.noda.api.core.operators.filterOperators.FilterOperator;
 import gr.ds.unipi.noda.api.core.operators.joinOperators.JoinOperator;
 import gr.ds.unipi.noda.api.core.operators.sortOperators.SortOperator;
 import gr.ds.unipi.noda.api.parquet.classes.NoSqlDbReadSupport;
-import gr.ds.unipi.noda.api.parquet.classes.Record;
-import gr.ds.unipi.noda.api.parquet.filterOperators.geoperators.trajectoryOperators.ParquetTrajectoryOperatorFactory;
 import gr.ds.unipi.noda.api.parquet.filterOperators.geoperators.trajectoryOperators.trajectoryGeoTemporalOperators.OperatorInGeoTemporalRectangle;
-import gr.ds.unipi.noda.api.parquet.filterOperators.geoperators.trajectoryOperators.trajectoryGeoTemporalOperators.TrajectoryGeoTemporalOperator;
 import org.apache.hadoop.fs.Path;
+import org.apache.parquet.filter2.compat.FilterCompat;
+import org.apache.parquet.filter2.predicate.FilterApi;
 import org.apache.parquet.filter2.predicate.FilterPredicate;
 import org.apache.parquet.hadoop.ParquetReader;
 import org.apache.spark.sql.Dataset;
@@ -31,7 +30,7 @@ import java.util.stream.Collectors;
 
 final class ParquetOperators extends NoSqlDbOperators {
 
-    private final List<FilterPredicate> fp;
+    private final List<FilterOperator> fp;
     private final List<String> project;
     private final ParquetConnectionManager parquetConnectionManager = ParquetConnectionManager.getInstance();
     //to access the database's object for connectivity, call parquetConnectionManager.getConnection(getNoSqlDbConnector())
@@ -45,7 +44,7 @@ final class ParquetOperators extends NoSqlDbOperators {
         project = new ArrayList<>();
     }
 
-    private ParquetOperators(NoSqlDbConnector noSqlDbConnector, String dataCollection, SparkSession sparkSession, List<FilterPredicate> fp, List<String> project) {
+    private ParquetOperators(NoSqlDbConnector noSqlDbConnector, String dataCollection, SparkSession sparkSession, List<FilterOperator> fp, List<String> project) {
         super(noSqlDbConnector, dataCollection, sparkSession);
         this.fp = fp;
         this.project = project;
@@ -57,12 +56,12 @@ final class ParquetOperators extends NoSqlDbOperators {
 
     @Override
     public NoSqlDbOperators filter(FilterOperator filterOperator, FilterOperator... filterOperators) {
-        List<FilterPredicate> fp =new ArrayList<>(this.fp);
+        List<FilterOperator> fp =new ArrayList<>(this.fp);
         List<String> project = new ArrayList<>(this.project);
 
-        fp.add((FilterPredicate) filterOperator.getOperatorExpression());
+        fp.add(/*(FilterPredicate)*/ filterOperator/*.getOperatorExpression()*/);
         for (FilterOperator operator : filterOperators) {
-            fp.add((FilterPredicate) operator.getOperatorExpression());
+            fp.add(/*(FilterPredicate)*/ operator/*.getOperatorExpression()*/);
         }
         return new ParquetOperators(getNoSqlDbConnector(), getDataCollection(), getSparkSession(), fp, project);
     }
@@ -124,7 +123,7 @@ final class ParquetOperators extends NoSqlDbOperators {
 
     @Override
     public NoSqlDbOperators project(String fieldName, String... fieldNames) {
-        List<FilterPredicate> fp =new ArrayList<>(this.fp);
+        List<FilterOperator> fp =new ArrayList<>(this.fp);
         List<String> project = new ArrayList<>(this.project);
 
         project.add(fieldName);
@@ -150,21 +149,14 @@ final class ParquetOperators extends NoSqlDbOperators {
 
         boolean hasFilter = true;
         try {
-            ParquetReader<Document> data = ParquetReader.builder(new NoSqlDbReadSupport(project), new Path("/Users/nicholaskoutroumanis/Desktop/trajparquet-noda"))
-//                    .withFilter(FilterCompat.get(FilterApi.and(
-//                            FilterApi.and(
-//                                    FilterApi.gtEq(xColumn, xMin),
-//                                    FilterApi.ltEq(xColumn, xMax)
-//                            ),
-//                            FilterApi.and(
-//                                    FilterApi.gtEq(yColumn, yMin),
-//                                    FilterApi.ltEq(yColumn, yMax)
-//                            )
-//                    )))
-                    // - don't use record filters for x,y
+            ParquetReader.Builder<Document> dataBuilder = ParquetReader.builder(new NoSqlDbReadSupport(project), new Path("/Users/nicholaskoutroumanis/Desktop/trajparquet-noda"));
+            if(!fp.isEmpty()){
+                dataBuilder = dataBuilder.withFilter(FilterCompat.get(formPushdownPredicateFilter()));
+            }
+             // - don't use record filters for x,y
                     // - only a custom filter for an entire geometry object
                     //   can be used instead.
-                    .useRecordFilter(true)
+                    ParquetReader<Document> data  = dataBuilder.useRecordFilter(true)
                     .useDictionaryFilter(true)
                     .useBloomFilter(true)
                     .useColumnIndexFilter(hasFilter)
@@ -173,51 +165,28 @@ final class ParquetOperators extends NoSqlDbOperators {
                     .useStatsFilter(hasFilter)
                     .build();
 
-//            List<Document> documentsList = OperatorInGeoTemporalRectangle.newOperatorInGeoTemporalRectangle("null","null",null,null).refinement(data);
-//            List<Document> documentsList = new ArrayList<>();
-
-//            Document doc = null;
-//            while ((doc = data.read() ) != null ){
-////                System.out.println(doc.get("segment"));
-//
-//                Document document = (Document) doc.get("segment");
-//
-//                byte[] bytesS = Base64Variants.getDefaultVariant().decode(doc.getString("objectId").replaceAll(":","="));
-//                byte[] bytes = Base64Variants.getDefaultVariant().decode(document.getString("latitude").replaceAll(":","="));//document.getString("timestamps").replaceAll(":","=").getBytes();
-////                byte[] bytes = ((Binary)document.get("timestamps")).getData();
-//
-//                ByteBuffer byteBuffer = ByteBuffer.wrap(bytes);
-//                int cap = byteBuffer.capacity()/8;
-//                for (int i = 0; i < cap; i++) {
-//                    System.out.println(byteBuffer.getDouble() + " -" +cap +" - "+new String(bytesS));
-//                }
-//
-//                byte[] bytes1 = Base64Variants.getDefaultVariant().decode(document.getString("timestamps").replaceAll(":","="));//document.getString("timestamps").replaceAll(":","=").getBytes();
-////                byte[] bytes = ((Binary)document.get("timestamps")).getData();
-//
-//                ByteBuffer byteBuffer1 = ByteBuffer.wrap(bytes1);
-//                int cap1 = byteBuffer1.capacity()/8;
-//                for (int i = 0; i < cap1; i++) {
-//                    System.out.println(byteBuffer1.getLong() + " -" +cap1 +" - "+new String(bytesS));
-//                }
-//
-//                if(cap != cap1){
-//                    try {
-//                        throw new Exception("different size");
-//                    } catch (Exception e) {
-//                        throw new RuntimeException(e);
-//                    }
-//                }
-//                documentsList.add(doc);
-//            }
-            return new ParquetResults(data, OperatorInGeoTemporalRectangle.newOperatorInGeoTemporalRectangle("null","null",null,null));
+            return new ParquetResults(data, (OperatorInGeoTemporalRectangle) fp.get(0));
 //            return new ParquetResults(data);
-
 
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
 
 
+    }
+
+    private FilterPredicate formPushdownPredicateFilter(){
+        if(fp.size()==1){
+            return (FilterPredicate) fp.get(0).getOperatorExpression();
+        }else{
+            FilterPredicate f = FilterApi.and((FilterPredicate) fp.get(0).getOperatorExpression(), (FilterPredicate) fp.get(1).getOperatorExpression());
+            if(fp.size()==2){
+                return f;
+            }
+            for (int i = 2; i < fp.size(); i++) {
+                f = FilterApi.and(f, (FilterPredicate) fp.get(i).getOperatorExpression());
+            }
+            return f;
+        }
     }
 }
